@@ -38,7 +38,8 @@ async def start_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
     await update.message.reply_text(
         "Pilih platform:\n- " + "\n- ".join(platforms.keys()) +
-        "\n\nSilakan *ketik* salah satu platform di atas.",
+        "\n\nSilakan *ketik* salah satu platform di atas.\n"
+        "Kamu juga bisa ketik platform *custom* (misalnya: melon, weverse, dll).",
         parse_mode="Markdown"
     )
 
@@ -56,15 +57,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if step == "choose_platform":
         platform = text.lower()
         state["platform"] = platform
+        state["step"] = "caption"
+
         if platform in platforms:
-            state["step"] = "caption"
             await message.reply_text(f"Kamu pilih: {platform}\nSekarang kirim *caption*.", parse_mode="Markdown")
         else:
-            await message.reply_text("Platform tidak dikenali. Ketik salah satu dari:\n" + ", ".join(platforms.keys()))
+            await message.reply_text(
+                f"Kamu pilih platform *custom*: `{platform}`\nSekarang kirim *caption*.",
+                parse_mode="Markdown"
+            )
+
     elif step == "caption":
         state["caption"] = text
         state["step"] = "tags"
         await message.reply_text("Sekarang kirim *tagar*.\nContoh: `#kiiikiii #haum`\n\n📸 Kirim gambar satu per satu lalu ketik `/done` jika selesai.", parse_mode="Markdown")
+
     elif step == "tags":
         state["tags"] = text
         if state["platform"] == "youtube":
@@ -73,6 +80,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             state["step"] = "wait_images"
             await message.reply_text("📸 Kirim gambar satu per satu lalu ketik `/done` jika selesai.")
+
     elif step == "link":
         state["link"] = text
         state["step"] = "wait_images"
@@ -109,8 +117,12 @@ async def finish_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     platform_tag = platforms.get(platform, f"#{platform}")
     is_known = platform in platforms
-    on_or_at = "at" if platform == "fansign" or not is_known else "on"
-    prefix = FANSITE_NAME if platform in ["tiktok", "youtube", "instastory", "reels"] else AGENCY_NAME if platform == "blog" else ""
+    on_or_at = "on" if is_known and platform != "fansign" else "at"
+    prefix = (
+        FANSITE_NAME if platform in ["tiktok", "youtube", "instastory", "reels"]
+        else AGENCY_NAME if platform == "blog"
+        else ""
+    )
 
     isi_post = (
         f"{tanggal} 𐙚\n\n"
@@ -132,7 +144,6 @@ async def finish_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_state.pop(user_id)
 
 def main():
-    from telegram.ext import ApplicationBuilder
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("post", start_post))
